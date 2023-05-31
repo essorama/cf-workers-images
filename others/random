@@ -1,0 +1,31 @@
+javascript
+// 定义API URL
+const apiUrl = "https://picsum.photos/200/300";
+
+// 获取图片容器元素
+const imageContainer = document.getElementById("image-container");
+
+// 获取刷新按钮元素
+const refreshButton = document.getElementById("refresh-button");
+
+// 刷新页面时加载图片
+window.onload = function() {
+  loadRandomImage();
+}
+
+// 监听刷新按钮点击事件
+refreshButton.addEventListener("click", function() {
+  loadRandomImage();
+});
+
+// 加载随机图片
+function loadRandomImage() {
+  // 创建一个新的Image对象
+  const image = new Image();
+  // 设置图片src属性为API URL
+  image.src = apiUrl;
+  // 清空图片容器
+  imageContainer.innerHTML = "";
+  // 添加图片到容器中
+  imageContainer.appendChild(image);
+}
