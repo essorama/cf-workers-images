@@ -1,0 +1,18 @@
+addEventListener('fetch', event => {
+    event.respondWith(handleRequest(event.request))
+})
+
+async function handleRequest(request) {
+
+	var background_urls = [
+	'https://w.wallhaven.cc/full/ey/wallhaven-eymzjk.jpg',
+	'https://w.wallhaven.cc/full/j8/wallhaven-j8rk95.png'
+	]
+	var index = Math.floor((Math.random()*background_urls.length));
+	res = await fetch(background_urls[index])
+    return new Response(res.body, {
+        headers: { 'content-type': 'image/jpeg' },
+    })
+}
+
+frrom https://blog.butanediol.me/2020/06/02/%E5%9F%BA%E4%BA%8E-Cloudflare-Workers-%E7%9A%84%E9%9A%8F%E6%9C%BA%E5%9B%BE/
