@@ -1,0 +1,56 @@
+以下是一个利用Cloudflare Workers创建调用GitHub文件夹中随机图片的API的脚本示例：
+
+javascript
+addEventListener('fetch', event => {
+  event.respondWith(handleRandomImageRequest(event.request))
+})
+
+async function handleRandomImageRequest(request) {
+  const REPO_OWNER = 'OWNER-NAME'; //GitHub仓库的作者或组织名称
+  const REPO_NAME = 'REPO-NAME'; //GitHub仓库的名称
+  const FOLDER_PATH = 'FOLDER-NAME'; //GitHub仓库中存储图片的文件夹路径
+  const FILE_EXTENSION = 'jpg'; //图片文件的扩展名
+
+  const imageUrl = await getRandomImageUrl(REPO_OWNER, REPO_NAME, FOLDER_PATH, FILE_EXTENSION)
+
+  // 获取随机图片
+  const imageResponse = await fetch(imageUrl)
+
+  // 返回图片的Response对象
+  return new Response(imageResponse.body, {
+    headers: {
+      'Content-Type': 'image/jpeg',
+      'Cache-Control': 'no-cache'
+    }
+  })
+}
+
+async function getRandomImageUrl(repoOwner, repoName, folderPath, fileExtension) {
+  const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${folderPath}?ref=master`
+  const response = await fetch(apiUrl)
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch images from GitHub repository: ${response.status} ${response.statusText}`)
+  }
+
+  const folderData = await response.json()
+
+  const filteredFiles = folderData.filter(file => file.type === 'file' && file.name.endsWith(fileExtension))
+
+  if (filteredFiles.length === 0) {
+    throw new Error(`No images found in folder: ${folderPath}`)
+  }
+
+  // 从文件列表中随机选择
+  const randomIndex = Math.floor(Math.random() * filteredFiles.length)
+  const randomFile = filteredFiles[randomIndex]
+
+  return randomFile.download_url
+}
+
+
+在此脚本中，我们首先获取GitHub仓库中存储图片的文件夹路径。 然后，我们从API响应中筛选出具有我们所需文件扩展名的所有文件，并从中选择一个随机文件。 我们返回该文件的下载URL，并使用Cloudflare Workers API进行代理来将其作为响应返回。
+
+你需要将脚本中的REPO_OWNER、REPO_NAME、FOLDER_PATH和FILE_EXTENSION替换为自己的GitHub仓库信息。 将此脚本部署到Cloudflare Workers并使用GitHub随机图片API URL来访问它，例如https://your-worker.your-domain.com/。
+
+请注意，在部署此Worker之前，你需要将其部署到自己的Cloudflare Workers帐户上，并将其配置为对特定域名的入口点。同时你还需要确保你已经在GitHub中提供了正确的API访问权限，否则脚本将无法使用GitHub API获取文件夹中的文件列表。
