@@ -1,0 +1,15 @@
+javascript
+addEventListener('fetch', event => {
+  event.respondWith(handleRandomImageRequest())
+})
+
+async function handleRandomImageRequest() {
+  // 定义API URL
+  const apiUrl = "https://picsum.photos/200/300";
+
+  // 获取随机图片
+  const imageResponse = await fetch(apiUrl)
+
+  // 返回图片的Response对象
+  return imageResponse
+}
