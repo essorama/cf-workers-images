@@ -1,0 +1,66 @@
+javascript
+addEventListener('fetch', event => {
+  event.respondWith(handleRandomImageRequest(event.request))
+})
+
+async function handleRandomImageRequest(request) {
+  const userAgent = request.headers.get('User-Agent')
+  const isMobile = /mobile/i.test(userAgent)
+  const isTablet = /tablet/i.test(userAgent)
+
+  let width = 800
+  if (isMobile) {
+    width = 375
+  } else if (isTablet) {
+    width = 768
+  } else {
+    width = 1280
+  }
+
+  const apiUrl = `https://picsum.photos/${width}/?random`
+
+  // 获取随机图片
+  const imageResponse = await fetch(apiUrl)
+
+  // 返回图片的Response对象
+  return new Response(imageResponse.body, {
+    headers: {
+      'Content-Type': 'image/jpeg',
+      'Cache-Control': 'no-cache'
+    }
+  })
+}
+
+const THROTTLE_TIME = 3000 //3秒
+const clicks = new Array(3).fill(0);
+const LAST_CLICKS = clicks.length - 1;
+
+addEventListener('fetch', event => {
+  event.respondWith(handle(event.request))
+})
+
+async function handle(request) {
+  const responsePromise = handleRandomImageRequest(request);
+
+  if (clicks[LAST_CLICKS] + THROTTLE_TIME < Date.now()) {
+    clicks.shift();
+    const result = await responsePromise;
+    return setAutoRefresh(result);
+  }
+  else {
+    clicks.shift();
+    clicks.push(1);
+    return new Response("Request was throttled", {
+      status: 429,
+      statusText: "Too Many Requests"
+    });
+  }
+}
+
+function setAutoRefresh(response) {
+  let headers = response.headers;
+  headers.set("Refresh", "5"); //每5秒自动刷新 
+  return new Response(response.body, {
+    headers: headers
+  });
+}
