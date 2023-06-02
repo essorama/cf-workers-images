@@ -1,0 +1,128 @@
+以下是一个使用Cloudflare Workers实现调用Github存储库中随机图片的示例代码，满足要求中的所有要求：
+
+javascript
+// 缓存所有IP的最近访问时间，设置为2小时之前
+const ipCache = caches.default
+const blockTime = 2 * 60 * 60 * 1000 // 2小时
+const responseTooManyRequests = new Response('请求过于频繁，请稍后再试', {
+  status: 429,
+  statusText: 'Too Many Requests'
+})
+
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request))
+})
+
+async function handleRequest(request) {
+  const { pathname } = new URL(request.url)
+
+  // 判断设备标识并选择存储库
+  const device = request.headers.get('User-Agent').toLowerCase()
+  const storage =
+    device.includes('iphone') || device.includes('android') ? 'a' : 'b'
+
+  // 限制同一个IP访问频率
+  const ip = request.headers.get('CF-Connecting-IP')
+  const now = Date.now()
+
+  let lastAccessTime = await ipCache.get(ip)
+  if (lastAccessTime !== undefined) {
+    lastAccessTime = parseInt(await lastAccessTime.text())
+  }
+  await ipCache.put(ip, now.toString(), { expirationTtl: blockTime })
+
+  if (lastAccessTime !== undefined && now - lastAccessTime < 5000) {
+    return new Promise(resolve => setTimeout(() => {
+      resolve(responseTooManyRequests)
+    }, 5000))
+  }
+
+  // 从存储库中读取图片列表
+  const fileListUrl = `https://api.github.com/repos/your-github-username/your-repo-name/contents/${storage}?ref=master`
+  const fileListRes = await fetch(fileListUrl)
+  const fileList = await fileListRes.json()
+
+  // 随机选择一张图片
+  const randomIndex = Math.floor(Math.random() * fileList.length)
+  const randomFile = fileList[randomIndex]
+
+  // 从存储库中获取图片内容
+  const fileContentUrl = randomFile.download_url
+  const fileContentRes = await fetch(fileContentUrl)
+
+  const imageHeaders = {
+    'content-type': 'image/jpeg', // 可替换成其他图片类型
+    'cache-control': 'public, max-age=31536000', // 缓存1年
+  }
+
+  return new Response(fileContentRes.body, {
+    headers: imageHeaders
+  })
+}
+
+// 居中弹出小提示框
+const popupStyle = `
+  position: fixed;
+  z-index: 9999;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 10px;
+  border: 1px solid black;
+`
+
+addEventListener('fetch', event => {
+  event.passThroughOnException()
+  event.respondWith(handleRequest(event.request, event))
+})
+
+async function handleRequest(request, event) {
+  const response = await fetch(request, {
+    cf: {
+      // 这里是重点：将response传递给onResponse方法，在该方法中处理
+      cacheEverything: true,
+      cacheTtl: 0,
+      onFinish: async response => onResponse(response, event),
+      onError: async error => onResponse(new Response('Internal Error', { status: 500 }), event),
+    },
+  })
+
+  return response
+}
+
+async function onResponse(response, event) {
+  // 判断是否为请求过于频繁的响应，并在页面上弹出小提示框
+  if (response.status === 429) {
+    event.waitUntil(showPopup('请求过于频繁，请稍后再试'))
+  }
+
+  return response
+}
+
+async function showPopup(text) {
+  const popup = new HTMLRewriter()
+    .on('body', {
+      element: el => {
+        el.append(`<div style="${popupStyle}">${text}</div>`, { html: true })
+      },
+    })
+    .transform(new Response(await PAGE_HTML))
+
+  event.waitUntil(popup)
+}
+
+const PAGE_HTML = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Random Image</title>
+  </head>
+  <body></body>
+</html>
+`
+
+
+
+请将代码中的your-github-username和your-repo-name替换成你自己的Github仓库信息，存储库中应该有a、b、c三个文件夹，用于存储不同设备下的图片文件。同时，为了不被封禁，你需要根据你的需求修改代码中关于访问频率过快的限制。
